@@ -1,0 +1,1 @@
+Namespace(data_device='cuda', eval=False, images='images', load_allres=False, model_path='/data15/DISCOVER_winter2024/zhengj2401/jeep-wrangler-rubicon-recon-jk-2017', resolution=-1, save_name='render', sh_degree=3, source_path='/data15/DISCOVER_winter2024/zhengj2401/car_nerf_data3/jeep-wrangler-rubicon-recon-jk-2017', white_background=False)
