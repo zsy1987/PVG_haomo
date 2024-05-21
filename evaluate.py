@@ -136,18 +136,18 @@ def evaluation(_xyz,_rotation,_scaling,iteration, scene : Scene, renderFunc, ren
                 new_xyz,new_scaling,new_rotation = tracking(_xyz.clone(),_rotation.clone(),_scaling.clone(),idx,thetas_t,T_trans_t)
                 scene.gaussians = replace_last_N(scene.gaussians,new_xyz,new_scaling,new_rotation)
                 # 随时间t动态改变τ，以实现改变振动周期的效果
-                scene.gaussians._t[-_xyz.shape[0]:] = torch.full((_xyz.shape[0], 1),  19/20* (-0.98+idx*0.02)+0.8, device="cuda")
+                # scene.gaussians._t[-_xyz.shape[0]:] = torch.full((_xyz.shape[0], 1),  19/20* (-0.98+idx*0.02)+0.8, device="cuda")
 
-                xyz = scene.gaussians.get_xyz_SHM(viewpoint.timestamp)
+                # xyz = scene.gaussians.get_xyz_SHM(viewpoint.timestamp)
                 
-                z=xyz[:,2]
-                with open('tensor_data.txt', 'w') as f:
-                    for item in z:
-                        f.write(f"{item.item()}\n")
+                # z=xyz[:,2]
+                # with open('tensor_data.txt', 'w') as f:
+                #     for item in z:
+                #         f.write(f"{item.item()}\n")
 
-                if idx==2:
-                    save_ply(xyz, '/data15/DISCOVER_winter2024/zhengj2401/PVG/point_cloud.ply')
-                    exit(0)
+                # if idx==2:
+                #     save_ply(xyz, '/data15/DISCOVER_winter2024/zhengj2401/PVG/point_cloud.ply')
+                #     exit(0)
               
                 render_pkg = renderFunc(viewpoint, scene.gaussians, *renderArgs, env_map=env_map)
                 image  = torch.clamp(render_pkg["render"], 0.0, 1.0)
