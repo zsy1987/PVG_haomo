@@ -135,19 +135,18 @@ def evaluation(_xyz,_rotation,_scaling,iteration, scene : Scene, renderFunc, ren
 
                 new_xyz,new_scaling,new_rotation = tracking(_xyz.clone(),_rotation.clone(),_scaling.clone(),idx,thetas_t,T_trans_t)
                 scene.gaussians = replace_last_N(scene.gaussians,new_xyz,new_scaling,new_rotation)
-                # 随时间t动态改变τ，以实现改变振动周期的效果
-                # scene.gaussians._t[-_xyz.shape[0]:] = torch.full((_xyz.shape[0], 1),  19/20* (-0.98+idx*0.02)+0.8, device="cuda")
 
                 # xyz = scene.gaussians.get_xyz_SHM(viewpoint.timestamp)
+                # save_ply(xyz, '/data15/DISCOVER_winter2024/zhengj2401/PVG/point_cloud.ply')
+                # exit(0)
                 
                 # z=xyz[:,2]
                 # with open('tensor_data.txt', 'w') as f:
                 #     for item in z:
                 #         f.write(f"{item.item()}\n")
 
-                # if idx==2:
-                #     save_ply(xyz, '/data15/DISCOVER_winter2024/zhengj2401/PVG/point_cloud.ply')
-                #     exit(0)
+             
+                
               
                 render_pkg = renderFunc(viewpoint, scene.gaussians, *renderArgs, env_map=env_map)
                 image  = torch.clamp(render_pkg["render"], 0.0, 1.0)
@@ -349,11 +348,11 @@ if __name__ == "__main__":
     gaussians = GaussianModel(args)
     scene = Scene(args, gaussians, shuffle=False)
     
-    # if args.env_map_res > 0:
-    #     env_map = EnvLight(resolution=args.env_map_res).cuda()
-    #     env_map.training_setup(args)
-    # else:
-    env_map = None
+    if args.env_map_res > 0:
+        env_map = EnvLight(resolution=args.env_map_res).cuda()
+        env_map.training_setup(args)
+    else:
+        env_map = None
 
     checkpoints = glob.glob(os.path.join(args.model_path, "chkpnt*.pth"))
     assert len(checkpoints) > 0, "No checkpoints found."
@@ -374,11 +373,11 @@ if __name__ == "__main__":
     # gaussians._scaling = torch.log((torch.exp(gaussians._scaling)))
     
 
-    # if env_map is not None:
-    #     env_checkpoint = os.path.join(os.path.dirname(checkpoint), 
-    #                                 os.path.basename(checkpoint).replace("chkpnt", "env_light_chkpnt"))
-    #     (light_params, _) = torch.load(env_checkpoint)
-    #     env_map.restore(light_params)
+    if env_map is not None:
+        env_checkpoint = os.path.join(os.path.dirname(checkpoint), 
+                                    os.path.basename(checkpoint).replace("chkpnt", "env_light_chkpnt"))
+        (light_params, _) = torch.load(env_checkpoint)
+        env_map.restore(light_params)
     
     bg_color = [1, 1, 1] if args.white_background else [0, 0, 0]
     background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
