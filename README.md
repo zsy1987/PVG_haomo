@@ -1,5 +1,5 @@
 # Periodic Vibration Gaussian for haomo
-### [[Project]](https://fudan-zvg.github.io/PVG) [[Paper]](https://arxiv.org/abs/2311.18561) 
+
 
 ## Get started
 ### Environment
