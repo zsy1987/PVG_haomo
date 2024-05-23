@@ -260,30 +260,30 @@ class GaussianModel:
         features[:, :3, 0] = fused_color
         features[:, 3:, 1:] = 0.0
 
-        ## random up and far
-        r_max = 100000
-        r_min = 2
-        num_sph = self.random_init_point
+        # ## random up and far
+        # r_max = 100000
+        # r_min = 2
+        # num_sph = self.random_init_point
 
-        theta = 2*torch.pi*torch.rand(num_sph)
-        phi = (torch.pi/2*0.99*torch.rand(num_sph))**1.5 # x**a decay
-        s = torch.rand(num_sph)
-        r_1 = s*1/r_min+(1-s)*1/r_max
-        r = 1/r_1
-        pts_sph = torch.stack([r*torch.cos(theta)*torch.cos(phi), r*torch.sin(theta)*torch.cos(phi), r*torch.sin(phi)],dim=-1).cuda()
+        # theta = 2*torch.pi*torch.rand(num_sph)
+        # phi = (torch.pi/2*0.99*torch.rand(num_sph))**1.5 # x**a decay
+        # s = torch.rand(num_sph)
+        # r_1 = s*1/r_min+(1-s)*1/r_max
+        # r = 1/r_1
+        # pts_sph = torch.stack([r*torch.cos(theta)*torch.cos(phi), r*torch.sin(theta)*torch.cos(phi), r*torch.sin(phi)],dim=-1).cuda()
 
-        r_rec = r_min
-        num_rec = self.random_init_point
-        pts_rec = torch.stack([r_rec*(torch.rand(num_rec)-0.5),r_rec*(torch.rand(num_rec)-0.5),
-                               r_rec*(torch.rand(num_rec))],dim=-1).cuda()
+        # r_rec = r_min
+        # num_rec = self.random_init_point
+        # pts_rec = torch.stack([r_rec*(torch.rand(num_rec)-0.5),r_rec*(torch.rand(num_rec)-0.5),
+        #                        r_rec*(torch.rand(num_rec))],dim=-1).cuda()
 
-        pts_sph = torch.cat([pts_rec, pts_sph], dim=0)
-        pts_sph[:,2] = -pts_sph[:,2]+1
+        # pts_sph = torch.cat([pts_rec, pts_sph], dim=0)
+        # pts_sph[:,2] = -pts_sph[:,2]+1
 
-        fused_point_cloud = torch.cat([fused_point_cloud, pts_sph], dim=0)
-        features = torch.cat([features,
-                              torch.zeros([pts_sph.size(0), features.size(1), features.size(2)]).float().cuda()],
-                             dim=0)
+        # fused_point_cloud = torch.cat([fused_point_cloud, pts_sph], dim=0)
+        # features = torch.cat([features,
+        #                       torch.zeros([pts_sph.size(0), features.size(1), features.size(2)]).float().cuda()],
+        #                      dim=0)
 
         if pcd.time is None or pcd.time.shape[0] != fused_point_cloud.shape[0]:
             if pcd.time is None:
@@ -302,8 +302,8 @@ class GaussianModel:
                                                 0.5 * (self.time_duration[1] + self.time_duration[0]))
         else:
             fused_times = torch.from_numpy(np.asarray(pcd.time.copy())).cuda().float()
-            fused_times_sh = torch.full_like(pts_sph[..., :1], 0.5 * (self.time_duration[1] + self.time_duration[0]))
-            fused_times = torch.cat([fused_times, fused_times_sh], dim=0)
+            # fused_times_sh = torch.full_like(pts_sph[..., :1], 0.5 * (self.time_duration[1] + self.time_duration[0]))
+            # fused_times = torch.cat([fused_times, fused_times_sh], dim=0)
 
         print("Number of points at initialization : ", fused_point_cloud.shape[0])
 

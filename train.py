@@ -129,18 +129,18 @@ def training(args):
         log_dict['loss_ssim'] = loss_ssim.item()
         loss = (1.0 - args.lambda_dssim) * loss_l1 + args.lambda_dssim * loss_ssim
 
-        if args.lambda_lidar > 0:
-            assert viewpoint_cam.pts_depth is not None
-            pts_depth = viewpoint_cam.pts_depth.cuda()
+        # if args.lambda_lidar > 0:
+        #     assert viewpoint_cam.pts_depth is not None
+        #     pts_depth = viewpoint_cam.pts_depth.cuda()
 
-            mask = pts_depth > 0
-            loss_lidar =  torch.abs(1 / (pts_depth[mask] + 1e-5) - 1 / (depth[mask] + 1e-5)).mean()
-            if args.lidar_decay > 0:
-                iter_decay = np.exp(-iteration / 8000 * args.lidar_decay)
-            else:
-                iter_decay = 1
-            log_dict['loss_lidar'] = loss_lidar.item()
-            loss += iter_decay * args.lambda_lidar * loss_lidar
+        #     mask = pts_depth > 0
+        #     loss_lidar =  torch.abs(1 / (pts_depth[mask] + 1e-5) - 1 / (depth[mask] + 1e-5)).mean()
+        #     if args.lidar_decay > 0:
+        #         iter_decay = np.exp(-iteration / 8000 * args.lidar_decay)
+        #     else:
+        #         iter_decay = 1
+        #     log_dict['loss_lidar'] = loss_lidar.item()
+        #     loss += iter_decay * args.lambda_lidar * loss_lidar
 
         if args.lambda_t_reg > 0:
             loss_t_reg = -torch.abs(t_map).mean()

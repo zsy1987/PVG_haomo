@@ -554,8 +554,6 @@ def readHaomoInfo(args):
     poses_velo_w_tracking = np.matmul(invert_transformation(Tr_velo2cam3[:3,:3], Tr_velo2cam3[:3,3]), cam_poses_tracking)  # (n_frames, 4, 4) velodyne pose
 
     # Orients and centers the poses
-    
-
 
     oriented = torch.from_numpy(np.array(cam_poses_tracking).astype(np.float32))  # (n_frames, 3, 4)
     oriented, transform_matrix = auto_orient_and_center_poses(
@@ -632,12 +630,23 @@ def readHaomoInfo(args):
 
         if args.debug_cuda and idx > 5:
             break
-    pointcloud = np.concatenate(points[:5], axis=0)
-    ply_path = os.path.join(basedir, "points3d.ply")
-    rgbs = np.random.random((pointcloud.shape[0], 3))
-    storePly(ply_path, pointcloud, rgbs, None)
-    import ipdb
-    ipdb.set_trace()
+    # pointcloud = np.concatenate(points[:5], axis=0)
+    
+    import open3d as o3d
+
+    # 读取PCD文件
+    pointcloud = o3d.io.read_point_cloud(os.path.join(basedir,"freespace.pcd"))
+    pointcloud = np.asarray(pointcloud.points)
+
+    # 创建一个 N×1 的全 1 数组
+    ones_column = np.ones((pointcloud.shape[0], 1))
+
+    # 将全 1 列添加到原始数组中
+    pointcloud = np.hstack((pointcloud, ones_column))
+    # pointcloud = pointcloud @ 
+    pointcloud =  pointcloud[:,:3]
+
+  
 
     
     pointcloud = (np.concatenate([pointcloud, np.ones_like(pointcloud[:,:1])], axis=-1) @ transform_matrix.T)[:, :3]
@@ -664,7 +673,9 @@ def readHaomoInfo(args):
         cam_info.R[:] = np.transpose(w2c[:3, :3])  # R is stored transposed due to 'glm' in CUDA code
         cam_info.T[:] = w2c[:3, 3]
         cam_info.pointcloud_camera[:] *= scale_factor
+
     pointcloud = (np.pad(pointcloud, ((0, 0), (0, 1)), constant_values=1) @ transform.T)[:, :3]
+    #pointcloud *= scale_factor
 
     if args.eval:
         num_frame = len(cam_infos)

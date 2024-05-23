@@ -137,8 +137,9 @@ def evaluation(_xyz,_rotation,_scaling,iteration, scene : Scene, renderFunc, ren
                 scene.gaussians = replace_last_N(scene.gaussians,new_xyz,new_scaling,new_rotation)
 
                 # xyz = scene.gaussians.get_xyz_SHM(viewpoint.timestamp)
-                # save_ply(xyz, '/data15/DISCOVER_winter2024/zhengj2401/PVG/point_cloud.ply')
-                # exit(0)
+                # save_ply(xyz, '/data15/DISCOVER_winter2024/zhengj2401/PVG/point_cloud_new8.ply')
+                # import ipdb
+                # ipdb.set_trace()
                 
                 # z=xyz[:,2]
                 # with open('tensor_data.txt', 'w') as f:
@@ -170,22 +171,6 @@ def evaluation(_xyz,_rotation,_scaling,iteration, scene : Scene, renderFunc, ren
                 grid = make_grid(grid, nrow=2)
 
                 save_image(image, os.path.join(outdir, f"{viewpoint.colmap_id:03d}.png"))
-
-            #     l1_test += F.l1_loss(image, gt_image).double()
-            #     psnr_test += psnr(image, gt_image).double()
-            #     ssim_test += ssim(image, gt_image).double()
-            #     lpips_test += lpips(image, gt_image, net_type='vgg').double()  # very slow
-
-            # psnr_test /= len(config['cameras'])
-            # l1_test /= len(config['cameras'])
-            # ssim_test /= len(config['cameras'])
-            # lpips_test /= len(config['cameras'])
-
-            # print("\n[ITER {}] Evaluating {}: L1 {} PSNR {} SSIM {} LPIPS {}".format(iteration, config['name'], l1_test, psnr_test, ssim_test, lpips_test))
-            # with open(os.path.join(outdir, "metrics.json"), "w") as f:
-            #     json.dump({"split": config['name'], "iteration": iteration, "psnr": psnr_test.item(), "ssim": ssim_test.item(), "lpips": lpips_test.item()}, f)
-
-
 
 
 # 转为四元数
@@ -363,7 +348,7 @@ if __name__ == "__main__":
     gaussians.restore(model_params, args)
     
     # -----车辆高斯初始化-----
-    _xyz,_features_dc,_features_rest,_opacity,_scaling,_rotation,_t,_scaling_t,_velocity = load_ply('/data15/DISCOVER_winter2024/zhengj2401/jeep-wrangler-rubicon-recon-jk-2017/point_cloud/iteration_30000/point_cloud.ply',gaussians.max_sh_degree)
+    _xyz,_features_dc,_features_rest,_opacity,_scaling,_rotation,_t,_scaling_t,_velocity = load_ply('./car_gs_example/jeep-wrangler-rubicon-recon-jk-2017/point_cloud/iteration_30000/point_cloud.ply',gaussians.max_sh_degree)
 
 
     gaussians.densification_postfix(_xyz, _features_dc, _features_rest, _opacity, _scaling, _rotation,
