@@ -130,16 +130,12 @@ def replace_last_N(gaussians,new_xyz,new_scaling,new_rotation):
     return gaussians
 
 
-def get_tracks(xyz_init,xyz_2,xyz_3):
-    # z不变 ，动xy ， 这里只加偏移量 ， 即 x 向哪个方向移动多少 ，算 abs(x1-x2),从0开始插值
+def get_tracks(xyz_1,xyz_2,xyz_3,yaw_1,yaw_2,yaw_3,yaw_4):
+    # z不变 ，动xy ， 这里只加偏移量 ， 
     location_1 = np.array([0,0,0])
-    location_2 = xyz_2 - xyz_init 
-    location_3 = xyz_3 - xyz_init
+    location_2 = xyz_2 -xyz_1
+    location_3 = xyz_3 -xyz_1
 
-    yaw_1 = np.array([0])
-    yaw_2 = np.array([np.pi/14])
-    yaw_3 = np.array([0])
-    yaw_4 = np.array([0])
 
     linspace = np.linspace(
         location_1 , location_2 , 30
@@ -157,10 +153,8 @@ def get_tracks(xyz_init,xyz_2,xyz_3):
 
     return yaws,linspaces
 
-def tracking_init(_xyz,_rotation,_scaling,xyz,scale):
-    scale=scale
-    _xyz = _xyz/scale
-    _scaling = torch.log(torch.exp(_scaling)/scale)
+def tracking_init(_xyz,_rotation,_scaling,xyz,target_car_length):
+    
 
     # 初始旋转+缩放变换
     matrix = torch.tensor([
@@ -210,6 +204,17 @@ def tracking_init(_xyz,_rotation,_scaling,xyz,scale):
     _xyz = _xyz.float() @ rotation_matrix
     _rotation = quaternion_multiply(rotate_quaternion,_rotation.float())
     
+    x_min = torch.min(_xyz[:, 0])
+    x_max = torch.max(_xyz[:, 0])
+
+    source_car_length =  x_max-x_min
+
+    scale= source_car_length/target_car_length
+
+    _xyz = _xyz/scale
+
+    _scaling = torch.log(torch.exp(_scaling)/scale)
+
     # 计算 x 最小值和最大值
     x_min = torch.min(_xyz[:, 0])
     x_max = torch.max(_xyz[:, 0])
@@ -282,19 +287,23 @@ def evaluation(_xyz,_rotation,_scaling,iteration, scene : Scene, renderFunc, ren
             lpips_test = 0.0
             outdir = os.path.join(args.model_path, "eval", config['name'] + f"_{iteration}" + "_render")
             os.makedirs(outdir,exist_ok=True)
+            #-----------------超参数-----------------
+            # 这里输入包括，目标车辆长度，车辆轨迹的三个点，yaw角的插值变化
+            target_car_length = 0.18 # 在点云中确定目标场景车辆长度约 0.18
+            xyz_init=np.array([-0.3423,0.1286,0.05]) # 设置车辆初始所在位置
+            xyz_2=np.array([0.2622,-0.006,0.047]) # 设置车辆变道后所在位置
+            xyz_3=np.array([1.781824,-0.006,0.041]) # 设置车辆直行后最终位置
 
-            # 这里输入包括，尺度scale，车辆轨迹的三个点
-            scale = 8 
-            xyz_init=np.array([-0.4023,0.1286,0.044])
-            xyz_2=np.array([0.3622,-0.0486,0.044])
-            xyz_3=np.array([2.381824,-0.0486,0.044])
+            yaw_1 = np.array([0]) # 初始 yaw 角为0，车头超x轴正方向
+            yaw_2 = np.array([np.pi/14]) # 变道前半段 从 0 插值到 π/14
+            yaw_3 = np.array([0]) # 变道后半段 从 π/14 插值到 0
+            yaw_4 = np.array([0]) # 直行 yaw 角保持为 0 
+            #----------------------------------------
+
+            _xyz,_scaling,_rotation,T_init = tracking_init(_xyz.clone(),_rotation.clone(),_scaling.clone(),xyz_init,target_car_length)
 
 
-            _xyz,_scaling,_rotation,T_init = tracking_init(_xyz.clone(),_rotation.clone(),_scaling.clone(),xyz_init,scale)
-
-            scene.gaussians = replace_last_N(scene.gaussians, _xyz,_scaling,_rotation)
-
-            thetas_t,T_trans_t = get_tracks(xyz_init,xyz_2,xyz_3)
+            thetas_t,T_trans_t =  get_tracks(xyz_init,xyz_2,xyz_3,yaw_1,yaw_2,yaw_3,yaw_4)
 
 
             for idx, viewpoint in enumerate(tqdm(config['cameras'])):
