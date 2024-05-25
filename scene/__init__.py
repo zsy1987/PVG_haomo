@@ -81,8 +81,8 @@ class Scene:
             self.test_cameras[resolution_scale] = cameraList_from_camInfos(scene_info.test_cameras, resolution_scale, args)
             cameras_data = [cam.to_dict() for cam in self.train_cameras[resolution_scale]]
 
-            with open('/data15/DISCOVER_winter2024/zhengj2401/PVG/cameras.json', 'w') as file:
-                json.dump(cameras_data, file)
+            # with open('/data15/DISCOVER_winter2024/zhengj2401/PVG/cameras.json', 'w') as file:
+            #     json.dump(cameras_data, file)
             
         if self.loaded_iter:
             self.gaussians.load_ply(os.path.join(self.model_path,
