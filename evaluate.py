@@ -93,84 +93,8 @@ def save_ply(points, filename):
     vertex = np.array([(points[i][0], points[i][1], points[i][2]) for i in range(len(points))],
                       dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4')])
     vertex_element = PlyElement.describe(vertex, 'vertex')
-
- 
     ply_data = PlyData([vertex_element], text=True)
     ply_data.write(filename)
-
-
-
-
-
-@torch.no_grad()
-def evaluation(_xyz,_rotation,_scaling,iteration, scene : Scene, renderFunc, renderArgs, env_map=None):
-    from lpipsPyTorch import lpips
-    
-    scale = scene.resolution_scales[0]
-    if "kitti" in args.model_path:
-        # follow NSG: https://github.com/princeton-computational-imaging/neural-scene-graphs/blob/8d3d9ce9064ded8231a1374c3866f004a4a281f8/data_loader/load_kitti.py#L766
-        num = len(scene.getTrainCameras())//2
-        eval_train_frame = num//5
-        traincamera = sorted(scene.getTrainCameras(), key =lambda x: x.colmap_id)
-        validation_configs = ({'name': 'test', 'cameras': scene.getTestCameras(scale=scale)},
-                            {'name': 'train', 'cameras': traincamera[:num][-eval_train_frame:]+traincamera[num:][-eval_train_frame:]})
-    else:
-        validation_configs = ({'name': 'test', 'cameras': scene.getTestCameras(scale=scale)},
-                        {'name': 'train', 'cameras': scene.getTrainCameras()})
-    
-    for config in validation_configs:
-        if config['cameras'] and len(config['cameras']) > 0:
-            l1_test = 0.0
-            psnr_test = 0.0
-            ssim_test = 0.0
-            lpips_test = 0.0
-            outdir = os.path.join(args.model_path, "eval", config['name'] + f"_{iteration}" + "_render")
-            os.makedirs(outdir,exist_ok=True)
-
-
-            thetas_t,T_trans_t=get_tracks()
-
-
-            for idx, viewpoint in enumerate(tqdm(config['cameras'])):
-
-                new_xyz,new_scaling,new_rotation = tracking(_xyz.clone(),_rotation.clone(),_scaling.clone(),idx,thetas_t,T_trans_t)
-                scene.gaussians = replace_last_N(scene.gaussians,new_xyz,new_scaling,new_rotation)
-
-                # xyz = scene.gaussians.get_xyz_SHM(viewpoint.timestamp)
-                # save_ply(xyz, '/data15/DISCOVER_winter2024/zhengj2401/PVG/point_cloud_new8.ply')
-                # import ipdb
-                # ipdb.set_trace()
-                
-                # z=xyz[:,2]
-                # with open('tensor_data.txt', 'w') as f:
-                #     for item in z:
-                #         f.write(f"{item.item()}\n")
-
-             
-                
-              
-                render_pkg = renderFunc(viewpoint, scene.gaussians, *renderArgs, env_map=env_map)
-                image  = torch.clamp(render_pkg["render"], 0.0, 1.0)
-          
-                gt_image = torch.clamp(viewpoint.original_image.to("cuda"), 0.0, 1.0)
-
-                depth = render_pkg['depth']
-                alpha = render_pkg['alpha']
-                sky_depth = 900
-                depth = depth / alpha.clamp_min(EPS)
-                if env_map is not None:
-                    if args.depth_blend_mode == 0:  # harmonic mean
-                        depth = 1 / (alpha / depth.clamp_min(EPS) + (1 - alpha) / sky_depth).clamp_min(EPS)
-                    elif args.depth_blend_mode == 1:
-                        depth = alpha * depth + (1 - alpha) * sky_depth
-            
-                depth = visualize_depth(depth)
-                alpha = alpha.repeat(3, 1, 1)
-
-                grid = [gt_image, image, alpha, depth]
-                grid = make_grid(grid, nrow=2)
-
-                save_image(image, os.path.join(outdir, f"{viewpoint.colmap_id:03d}.png"))
 
 
 # 转为四元数
@@ -206,35 +130,37 @@ def replace_last_N(gaussians,new_xyz,new_scaling,new_rotation):
     return gaussians
 
 
-def get_tracks():
-    
-    start_aabb = np.array([-2,0,0.05])
-    end_aabb = np.array([4,-0.6,0.05])
-    aabb_4 = np.array([15,-0.6,0.05])
+def get_tracks(xyz_init,xyz_2,xyz_3):
+    # z不变 ，动xy ， 这里只加偏移量 ， 即 x 向哪个方向移动多少 ，算 abs(x1-x2),从0开始插值
+    location_1 = np.array([0,0,0])
+    location_2 = xyz_2 - xyz_init 
+    location_3 = xyz_3 - xyz_init
 
-    start_yaw = np.array([0])
-    mid_yaw = np.array([np.pi/14])
-    end_yaw = np.array([0])
+    yaw_1 = np.array([0])
+    yaw_2 = np.array([np.pi/14])
+    yaw_3 = np.array([0])
     yaw_4 = np.array([0])
 
     linspace = np.linspace(
-        start_aabb , end_aabb , 30
+        location_1 , location_2 , 30
     ) # 30x3
 
     linspace2 = np.linspace(
-        end_aabb , aabb_4 , 69
+        location_2 , location_3 , 69
     ) # 30x3
 
-    yaw_1 = np.linspace(start_yaw , mid_yaw , 15) # 15x1
-    yaw_2 = np.linspace(mid_yaw , end_yaw , 15) # 15x1
-    yaw_3 = np.linspace(end_yaw , yaw_4 , 69)
-    yaws = np.concatenate([yaw_1,yaw_2,yaw_3],axis=0)
+    yaw1 = np.linspace(yaw_1 , yaw_2 , 15) # 15x1
+    yaw2 = np.linspace(yaw_2 , yaw_3 , 15) # 15x1
+    yaw3 = np.linspace(yaw_3 , yaw_4 , 69)
+    yaws = np.concatenate([yaw1,yaw2,yaw3],axis=0)
     linspaces=np.concatenate([linspace,linspace2],axis=0)
 
     return yaws,linspaces
 
-# 根据t更改高斯
-def tracking(_xyz,_rotation,_scaling,idx,thetas_t,T_trans_t):
+def tracking_init(_xyz,_rotation,_scaling,xyz,scale):
+    scale=scale
+    _xyz = _xyz/scale
+    _scaling = torch.log(torch.exp(_scaling)/scale)
 
     # 初始旋转+缩放变换
     matrix = torch.tensor([
@@ -242,18 +168,23 @@ def tracking(_xyz,_rotation,_scaling,idx,thetas_t,T_trans_t):
         [0.0, -1.0, 0.0],
         [0.0, 0.0, -1.0],
     ], dtype=torch.float32).cuda()  
+
     theta = torch.tensor(90 * (3.141592653589793 / 180))  # 将角度转换为弧度
+    
     rotation_matrix = torch.tensor([
         [torch.cos(theta), -torch.sin(theta), 0.0],
         [torch.sin(theta), torch.cos(theta), 0.0],
         [0.0, 0.0, 1.0]
     ], dtype=torch.float32).cuda()
+
     rotation_qvec = rotmat2qvec(np.array([
         [torch.cos(theta), -torch.sin(theta), 0.0],
         [torch.sin(theta), torch.cos(theta), 0.0],
         [0.0, 0.0, 1.0]
     ]))
     rotate_quaternion = torch.tensor(rotation_qvec).unsqueeze(0).cuda().float()
+
+
     rotation_qvec2 = rotmat2qvec(np.array([
         [1, 0.0, 0.0],
         [0.0, -1.0, 0.0],
@@ -274,12 +205,34 @@ def tracking(_xyz,_rotation,_scaling,idx,thetas_t,T_trans_t):
         [1.0, 0.0, 0.0],
         [0,torch.cos(theta), -torch.sin(theta)],
         [0,torch.sin(theta), torch.cos(theta)],
-        
     ]))
     rotate_quaternion = torch.tensor(rotation_qvec).unsqueeze(0).cuda().float()
     _xyz = _xyz.float() @ rotation_matrix
     _rotation = quaternion_multiply(rotate_quaternion,_rotation.float())
+    
+    # 计算 x 最小值和最大值
+    x_min = torch.min(_xyz[:, 0])
+    x_max = torch.max(_xyz[:, 0])
 
+    # 计算 y 最小值和最大值
+    y_min = torch.min(_xyz[:, 1])
+    y_max = torch.max(_xyz[:, 1])
+
+    # 计算 x 中心
+    xcenter = (x_min + x_max) / 2
+
+    # 计算 y 中心
+    ycenter = (y_min + y_max) / 2
+
+    # 计算 z 最小值
+    zmin = torch.max(_xyz[:, 2])
+
+    x,y,z=xyz
+    T_int = (x-xcenter),(y-ycenter),(z-zmin) 
+    return _xyz,_scaling,_rotation,T_int
+
+# 根据t更改高斯
+def tracking(_xyz,_rotation,_scaling,idx,thetas_t,T_trans_t,T_init):
 
     # 轨迹旋转
     theta2=torch.tensor(thetas_t[idx]).squeeze(0)#与t相关
@@ -297,19 +250,91 @@ def tracking(_xyz,_rotation,_scaling,idx,thetas_t,T_trans_t):
     _xyz = _xyz.float() @ rotation_matrix
     _rotation = quaternion_multiply(rotate_quaternion,_rotation.float())
 
-
-    # 初始平移变换
-    T_int = torch.tensor([-2,0,0.05]).cuda()
+    
     # 轨迹平移
     T_trans= torch.tensor(T_trans_t[idx]).cuda()#与t相关
-    _xyz=_xyz+T_int
+    _xyz=_xyz+ torch.tensor(T_init).cuda()
     _xyz=_xyz+T_trans
 
-    scale=8
-    _xyz = _xyz/scale
-    _scaling = torch.log(torch.exp(_scaling)/scale)
-
     return _xyz,_scaling,_rotation
+
+@torch.no_grad()
+def evaluation(_xyz,_rotation,_scaling,iteration, scene : Scene, renderFunc, renderArgs, env_map=None):
+    from lpipsPyTorch import lpips
+    
+    scale = scene.resolution_scales[0]
+    if "kitti" in args.model_path:
+        # follow NSG: https://github.com/princeton-computational-imaging/neural-scene-graphs/blob/8d3d9ce9064ded8231a1374c3866f004a4a281f8/data_loader/load_kitti.py#L766
+        num = len(scene.getTrainCameras())//2
+        eval_train_frame = num//5
+        traincamera = sorted(scene.getTrainCameras(), key =lambda x: x.colmap_id)
+        validation_configs = ({'name': 'test', 'cameras': scene.getTestCameras(scale=scale)},
+                            {'name': 'train', 'cameras': traincamera[:num][-eval_train_frame:]+traincamera[num:][-eval_train_frame:]})
+    else:
+        validation_configs = ({'name': 'test', 'cameras': scene.getTestCameras(scale=scale)},
+                        {'name': 'train', 'cameras': scene.getTrainCameras()})
+    
+    for config in validation_configs:
+        if config['cameras'] and len(config['cameras']) > 0:
+            l1_test = 0.0
+            psnr_test = 0.0
+            ssim_test = 0.0
+            lpips_test = 0.0
+            outdir = os.path.join(args.model_path, "eval", config['name'] + f"_{iteration}" + "_render")
+            os.makedirs(outdir,exist_ok=True)
+
+            # 这里输入包括，尺度scale，车辆轨迹的三个点
+            scale = 8 
+            xyz_init=np.array([-0.4023,0.1286,0.044])
+            xyz_2=np.array([0.3622,-0.0686,0.044])
+            xyz_3=np.array([2.381824,-0.0695,0.044])
+
+
+            _xyz,_scaling,_rotation,T_init = tracking_init(_xyz.clone(),_rotation.clone(),_scaling.clone(),xyz_init,scale)
+
+            scene.gaussians = replace_last_N(scene.gaussians, _xyz,_scaling,_rotation)
+
+            thetas_t,T_trans_t = get_tracks(xyz_init,xyz_2,xyz_3)
+
+
+            for idx, viewpoint in enumerate(tqdm(config['cameras'])):
+
+                new_xyz,new_scaling,new_rotation = tracking(_xyz.clone(),_rotation.clone(),_scaling.clone(),idx,thetas_t,T_trans_t,T_init)
+
+                scene.gaussians = replace_last_N(scene.gaussians,new_xyz,new_scaling,new_rotation)
+                
+                scene.gaussians.save_ply('/data15/DISCOVER_winter2024/zhengj2401/PVG/point_cloud.ply',viewpoint.timestamp)
+                
+
+                # xyz = scene.gaussians.get_xyz_SHM(viewpoint.timestamp)
+                # save_ply(xyz, '/data15/DISCOVER_winter2024/zhengj2401/PVG/point_cloud_new8.ply')
+                # import ipdb
+                # ipdb.set_trace()                
+              
+                render_pkg = renderFunc(viewpoint, scene.gaussians, *renderArgs, env_map=env_map)
+                image  = torch.clamp(render_pkg["render"], 0.0, 1.0)
+          
+                gt_image = torch.clamp(viewpoint.original_image.to("cuda"), 0.0, 1.0)
+
+                depth = render_pkg['depth']
+                alpha = render_pkg['alpha']
+                sky_depth = 900
+                depth = depth / alpha.clamp_min(EPS)
+                if env_map is not None:
+                    if args.depth_blend_mode == 0:  # harmonic mean
+                        depth = 1 / (alpha / depth.clamp_min(EPS) + (1 - alpha) / sky_depth).clamp_min(EPS)
+                    elif args.depth_blend_mode == 1:
+                        depth = alpha * depth + (1 - alpha) * sky_depth
+            
+                depth = visualize_depth(depth)
+                alpha = alpha.repeat(3, 1, 1)
+
+                grid = [gt_image, image, alpha, depth]
+                grid = make_grid(grid, nrow=2)
+
+                save_image(image, os.path.join(outdir, f"{viewpoint.colmap_id:03d}.png"))
+
+
 
 if __name__ == "__main__":
     # Set up command line argument parser
@@ -343,8 +368,7 @@ if __name__ == "__main__":
     assert len(checkpoints) > 0, "No checkpoints found."
     checkpoint = sorted(checkpoints, key=lambda x: int(x.split("chkpnt")[-1].split(".")[0]))[-1]
     (model_params, first_iter) = torch.load(checkpoint)
-    # import ipdb 
-    # ipdb.set_trace()
+
     gaussians.restore(model_params, args)
     
     # -----车辆高斯初始化-----
@@ -354,10 +378,6 @@ if __name__ == "__main__":
     gaussians.densification_postfix(_xyz, _features_dc, _features_rest, _opacity, _scaling, _rotation,
                                    _t, _scaling_t, _velocity)
   
-    # gaussians._xyz=gaussians._xyz
-    # gaussians._scaling = torch.log((torch.exp(gaussians._scaling)))
-    
-
     if env_map is not None:
         env_checkpoint = os.path.join(os.path.dirname(checkpoint), 
                                     os.path.basename(checkpoint).replace("chkpnt", "env_light_chkpnt"))

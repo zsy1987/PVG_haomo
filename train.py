@@ -202,20 +202,20 @@ def training(args):
             if iteration > args.densify_until_iter * args.time_split_frac:
                 gaussians.no_time_split = False
 
-            # if iteration < args.densify_until_iter and (args.densify_until_num_points < 0 or gaussians.get_xyz.shape[0] < args.densify_until_num_points):
-            #     # Keep track of max radii in image-space for pruning
-            #     gaussians.max_radii2D[visibility_filter] = torch.max(gaussians.max_radii2D[visibility_filter], radii[visibility_filter])
-            #     gaussians.add_densification_stats(viewspace_point_tensor, visibility_filter)
-            #     if iteration > args.densify_from_iter and iteration % args.densification_interval == 0:
-            #         size_threshold = args.size_threshold if (iteration > args.opacity_reset_interval and args.prune_big_point > 0) else None
+            if iteration < args.densify_until_iter and (args.densify_until_num_points < 0 or gaussians.get_xyz.shape[0] < args.densify_until_num_points):
+                # Keep track of max radii in image-space for pruning
+                gaussians.max_radii2D[visibility_filter] = torch.max(gaussians.max_radii2D[visibility_filter], radii[visibility_filter])
+                gaussians.add_densification_stats(viewspace_point_tensor, visibility_filter)
+                if iteration > args.densify_from_iter and iteration % args.densification_interval == 0:
+                    size_threshold = args.size_threshold if (iteration > args.opacity_reset_interval and args.prune_big_point > 0) else None
 
-            #         if size_threshold is not None:
-            #             size_threshold = size_threshold // scene.resolution_scales[0]
+                    if size_threshold is not None:
+                        size_threshold = size_threshold // scene.resolution_scales[0]
 
-            #         gaussians.densify_and_prune(args.densify_grad_threshold, args.thresh_opa_prune, scene.cameras_extent, size_threshold, args.densify_grad_t_threshold)
+                    gaussians.densify_and_prune(args.densify_grad_threshold, args.thresh_opa_prune, scene.cameras_extent, size_threshold, args.densify_grad_t_threshold)
 
-            #     if iteration % args.opacity_reset_interval == 0 or (args.white_background and iteration == args.densify_from_iter):
-            #         gaussians.reset_opacity()
+                if iteration % args.opacity_reset_interval == 0 or (args.white_background and iteration == args.densify_from_iter):
+                    gaussians.reset_opacity()
 
             gaussians.optimizer.step()
             gaussians.optimizer.zero_grad(set_to_none = True)
