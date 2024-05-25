@@ -303,7 +303,7 @@ def evaluation(_xyz,_rotation,_scaling,iteration, scene : Scene, renderFunc, ren
 
                 scene.gaussians = replace_last_N(scene.gaussians,new_xyz,new_scaling,new_rotation)
                 
-                scene.gaussians.save_ply('/data15/DISCOVER_winter2024/zhengj2401/PVG/point_cloud.ply',viewpoint.timestamp)
+                # scene.gaussians.save_ply('/data15/DISCOVER_winter2024/zhengj2401/PVG/point_cloud.ply',viewpoint.timestamp)
                 
 
                 # xyz = scene.gaussians.get_xyz_SHM(viewpoint.timestamp)
