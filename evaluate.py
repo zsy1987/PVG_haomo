@@ -286,8 +286,8 @@ def evaluation(_xyz,_rotation,_scaling,iteration, scene : Scene, renderFunc, ren
             # 这里输入包括，尺度scale，车辆轨迹的三个点
             scale = 8 
             xyz_init=np.array([-0.4023,0.1286,0.044])
-            xyz_2=np.array([0.3622,-0.0686,0.044])
-            xyz_3=np.array([2.381824,-0.0695,0.044])
+            xyz_2=np.array([0.3622,-0.0486,0.044])
+            xyz_3=np.array([2.381824,-0.0486,0.044])
 
 
             _xyz,_scaling,_rotation,T_init = tracking_init(_xyz.clone(),_rotation.clone(),_scaling.clone(),xyz_init,scale)
